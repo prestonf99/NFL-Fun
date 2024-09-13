@@ -3,13 +3,16 @@ from pylab import mpl, plt
 plt.style.use('dark_background')
 plt.rcParams['axes.facecolor'] = '0.05'
 plt.rcParams['grid.color'] = '0.25'
-#plt.rcParams['axes.grid'] = True
+import warnings
+warnings.simplefilter('ignore')
 
 season = 2024
 s_type='REG'
 def wide_receiver(week, sort=None):
     if week == all:
         week = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
+    else:
+        week = ([week])
         
     data = nfl.import_weekly_data([season], ['week', 'player_name', 'position',
                                              'targets', 'target_share','receptions','receiving_yards',
@@ -46,6 +49,8 @@ def wide_receiver(week, sort=None):
 def tight_end(week, sort=None):
     if week == all:
         week = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
+    else:
+        week = ([week])
     data = nfl.import_weekly_data([season], ['week', 'player_name', 'position',
                                     'targets', 'target_share','receptions','receiving_yards',
                                     'receiving_yards_after_catch', 'fantasy_points','air_yards_share',
@@ -74,6 +79,8 @@ def tight_end(week, sort=None):
 def running_back(week, sort=None):
     if week == all:
         week = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
+    else:
+        week = ([week])
     data = nfl.import_weekly_data([season], ['week', 'recent_team', 'player_name', 'position', 'carries',
                                              'rushing_yards', 'receiving_yards',
                                              'fantasy_points', 'target_share', 'rushing_epa',
@@ -101,6 +108,8 @@ def running_back(week, sort=None):
 def quarterback(week, sort=None):
     if week == all:
         week = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
+    else:
+        week = ([week])
     data = nfl.import_weekly_data([season], ['week', 'player_name', 'position','passing_yards',
                                              'passing_tds', 'interceptions', 'sack_fumbles',
                                              'rushing_yards', 'fantasy_points', 'attempts',
@@ -120,7 +129,7 @@ def quarterback(week, sort=None):
                  'YPA', 'rush_yds',  'tds', 'int','fumbles','tdint','points', 'id', 'EPA', 'air_yds']]
     pos = ['QB']
     data = data[data['position'].isin(pos)]
-    wk = [week]
+    wk = week
     data = data[data['week'].isin(wk)]
     data.set_index('week', inplace=True)
     data = data.applymap(lambda x: round(x, 2) if isinstance(x, (float, int)) else x)
@@ -134,6 +143,8 @@ def rb_usage(week):
     #only need weeks
     if week == all:
         week = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
+    else:
+        week = ([week])
     data = nfl.import_weekly_data([season], ['week', 'player_name', 'position', 'carries', 
                                              'targets', 'fantasy_points'], downcast=False)
     data = data.rename(columns={'player_name':'player', 'position':'pos',
@@ -146,16 +157,23 @@ def rb_usage(week):
     data = data.sort_values('usage', ascending=False)
     pos = ['RB']
     data = data[data['pos'].isin(pos)]
+    wk = week
+    data = data[data['week'].isin(wk)]
     data.set_index('week', inplace=True)
     
     return data
 
-def plot_rb_usage(data, type, amount):
+def plot_rb_usage(week, type, amount=None):
     # data input - takes data from ps.rb_usage
     # type - 'bar', 'both', or 'scatter'
     # week - integer for nfl week
-    # amount - int. Number of players you want to look at. 
+    # amount - int. Number of players you want to look at.
+    data = rb_usage(week)
     week = data.index.values[:1]
+    if amount is None:
+        amount=30
+    else:
+        amount=amount
     if type == 'bar':
         plt.figure(figsize=(10,6))
         plt.barh(data['player'].head(amount), data['usage'].head(amount), label='Total Usage', color='b',
@@ -218,9 +236,11 @@ def plot_rb_usage(data, type, amount):
         plt.grid(True);
                 
 
-def plot_ypc(week, amount):
+def plot_ypc(week, amount=None):
     if week == all:
         week = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
+    else:
+        week = ([week])
     data = nfl.import_weekly_data([season], ['week', 'player_name', 'position', 'carries',
                                           'rushing_yards', 'receiving_yards',
                                           'fantasy_points', 'target_share'],
@@ -239,6 +259,10 @@ def plot_ypc(week, amount):
     data = data[data['week'].isin(wk)]
     data = data.applymap(lambda x: round(x, 2) if isinstance(x, (float, int)) else x)
     data.set_index('week', inplace=True)
+    if amount is not None:
+        amount = amount
+    else:
+        amount = 30
     plt.figure(figsize=(10, 6))
     plt.barh(data['player'].head(amount), data['YPC'].head(amount), label='Yards Per Carry',
              color='orange')
@@ -253,8 +277,15 @@ def plot_ypc(week, amount):
     plt.title(f'Top {amount} Running Backs Yards Per Carry Week {week}')
     plt.legend();
 
-def wr_plots(data, type, amount):
-    week = data.index.values[:1]
+def wr_plots(week, type, amount=None):
+    if type in ('wopr', 'racr'):
+        data = wide_receiver(week, 'points')
+    else:
+        data = wide_receiver(week, 'tgt_share')
+    if amount is not None:
+        amount = amount
+    else:
+        amount = 30
     if type == 'wopr':
         data = data.head(amount)
         plt.figure(figsize=(10, 6))
@@ -278,7 +309,7 @@ def wr_plots(data, type, amount):
         print("RACR = Recieving Yards / Air Yards")
         print("Efficient player's ratio is generally 1 or higher")
     if type == 'tgt':
-        data = data.sort_values('tgt_share', ascending=False)
+        #data = data.sort_values('tgt_share', ascending=False)
         data = data.head(amount)
         plt.figure(figsize=(10, 6))
         plt.scatter(data['tgt_share'], data['points'])
@@ -287,25 +318,33 @@ def wr_plots(data, type, amount):
         plt.ylabel('Fantasy Points')
         plt.grid(True)
         plt.title(f'Week {week} WR Target Share & Fantasy Points - Top {amount}')
+    
 
 
-def receiver_rating(week, amount):
+def receiver_rating(week, amount=None):
     if week == all:
         week = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
+    if amount is not None:
+        amount = amount
+    else:
+        amount = 25
     data = nfl.import_weekly_pfr('rec', [2024])
     data = data[['week', 'pfr_player_name', 'receiving_rat']]
     data = data.rename(columns={'pfr_player_name':'player', 'receiving_rat':'rec_rat'})
     data = data.sort_values('rec_rat', ascending=False)
     mean_value = data['rec_rat'].mean()
     data = data.head(amount)
+    wk = [week]
+    data = data[data['week'].isin(wk)]
     data.set_index('week', inplace=True)
     plt.figure(figsize=(10, 6))
     plt.barh(data['player'], data['rec_rat'], facecolor='gray', edgecolor='black')
-    plt.axvline(mean_value, color='b', linestyle='--', lw=0.75, alpha=0.75, label='Mean Rec. Rating')
+    plt.axvline(mean_value, color='b', linestyle='--', lw=1.5, alpha=0.75, label='Mean Rec. Rating')
     plt.gca().invert_yaxis()
     plt.xlabel('Receiver Rating')
     plt.title(f'NFL Week {week}: Top {amount} Receiver PFR Rating')
     plt.legend(loc='lower right')
+
 
 
 
