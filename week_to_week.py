@@ -98,31 +98,35 @@ def running_back(week, sort=None):
     
     return data
 
-def quarterback(week, sort):
+def quarterback(week, sort=None):
     if week == all:
         week = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
     data = nfl.import_weekly_data([season], ['week', 'player_name', 'position','passing_yards',
-                                           'passing_tds', 'interceptions', 'sack_fumbles',
-                                  'rushing_yards', 'fantasy_points', 'attempts',
-                                            'completions'], downcast=False)
+                                             'passing_tds', 'interceptions', 'sack_fumbles',
+                                             'rushing_yards', 'fantasy_points', 'attempts',
+                                             'completions', 'player_id', 'rushing_tds',
+                                             'passing_epa','passing_air_yards'],downcast=False)
     data = data.rename(columns={'player_name':'player', 'passing_yards':'pass_yds',
-                                'passing_tds':'tds', 'interceptions':'int', 
+                                'passing_tds':'pass_td', 'interceptions':'int', 
                                 'rushing_yards':'rush_yds', 'fantasy_points':'points',
                                'sack_fumbles':'fumbles', 'completions':'comp',
-                               'attempts':'att'})
-    data['tdto'] = data['tds']/(data['int']+data['fumbles'])
+                               'attempts':'att', 'player_id':'id', 'passing_epa':'EPA',
+                               'passing_air_yards':'air_yds', 'rushing_tds':'rush_td'})
+    data['tdint'] = data['pass_td']/(data['int'])
     data['comp_pct'] = data['comp'] / data['att']
     data['YPA'] = data['pass_yds'] / data['att']
+    data['tds'] = data['rush_td'] + data['pass_td']
     data = data[['week', 'player', 'position','comp','att', 'comp_pct','pass_yds',
-                 'YPA', 'rush_yds',  'tds', 'int','fumbles','tdto','points']]
-    data = data.sort_values(sort, ascending=False)
+                 'YPA', 'rush_yds',  'tds', 'int','fumbles','tdint','points', 'id', 'EPA', 'air_yds']]
     pos = ['QB']
     data = data[data['position'].isin(pos)]
-    wk = week
+    wk = [week]
     data = data[data['week'].isin(wk)]
     data.set_index('week', inplace=True)
     data = data.applymap(lambda x: round(x, 2) if isinstance(x, (float, int)) else x)
-
+    if sort is not None:
+        data = data.sort_values(sort, ascending=False)
+        
     return data
 
 
