@@ -159,7 +159,15 @@ def team_image(team):
     return logo_url
 
 
-def team_covers(team):
+def find_spread_line(value, data):
+    for i, spread_range in enumerate(data['spread_line_binned']):
+        low, high = [float(x) for x in spread_range.strip('[]').replace(')', '').split(', ')]
+        if low <= value < high:  
+            return data.loc[data['spread_line_binned'] == spread_range, 'spread_line_binned_index'].values[0]
+    return None  
+
+
+def team_covers(team, line=None):
     raw = nfl.import_schedules([2014, 2015, 2016, 2017,2018, 2019,
                                  2020, 2021, 2022, 2023, 2024])
     data = raw[['game_id', 'home_team', 'away_team', 'home_score',
@@ -190,7 +198,8 @@ def team_covers(team):
     spread_line_mapping = {val: i for i, val in enumerate(spread_lines_sorted)}
     data['spread_line_binned_index'] = data['spread_line_binned'].map(spread_line_mapping)
     ax.imshow(img, aspect='auto', extent=[-0.1, 1.1, -1, len(spread_lines_sorted)], alpha=0.3, zorder=-1)
-    ax.scatter(data['cover_probability'], data['spread_line_binned_index'], s=50, color='grey', alpha=0.9, label='Cover Probability')
+    ax.scatter(data['cover_probability'], data['spread_line_binned_index'],
+               s=50, color='grey', alpha=0.9, label='Cover Probability')
     ax.set_xlabel('Cover Probability')
     ax.set_ylabel('Spread Line')
     ax.set_title(f'{team} Cover Probability by Spread')
@@ -202,8 +211,15 @@ def team_covers(team):
         ax.annotate(f'{int(row["games_played"])}', 
                     (row['cover_probability'], row['spread_line_binned_index']),
                     textcoords="offset points", xytext=(0, 5), ha='center')
-    ax.axvline(0.5, color='grey', alpha=0.75, linestyle='--')
-    ax.grid(True, alpha=0.3);
+    ax.axvline(0.5, color='grey', alpha=0.75, label='50% Prob', linestyle='--')
+    ax.grid(True, alpha=0.3)
+    if line is not None:
+        plt.axhline(find_spread_line(line, data), lw=0.9, alpha=0.8, 
+                    color='r', linestyle='--', label='Todays Spread')
+    ax.legend();
+
+
+
     
     
         
