@@ -161,9 +161,10 @@ def team_image(team):
 
 def team_covers(team):
     raw = nfl.import_schedules([2014, 2015, 2016, 2017,2018, 2019,
-                                 2020, 2021, 2022, 2023])
+                                 2020, 2021, 2022, 2023, 2024])
     data = raw[['game_id', 'home_team', 'away_team', 'home_score',
                 'away_score', 'spread_line', 'result']]
+    data.dropna(inplace=True)
     home = data[['home_team', 'spread_line', 'result']].copy()
     home['home_cover'] = home['result'] > home['spread_line']
     home = home.rename(columns={'home_team':'team', 'home_cover':'cover'})
