@@ -3,10 +3,12 @@ import warnings
 warnings.simplefilter('ignore')
 import pandas as pd
 from pylab import mpl, plt
+import numpy as np
 plt.style.use('dark_background')
 plt.style.use('dark_background')
 plt.rcParams['axes.facecolor'] = '0.05'
 plt.rcParams['grid.color'] = '0.25'
+from imageio import imread
 
 
 def team_over(year, team=None):
@@ -96,4 +98,111 @@ def team_spread_covers(year, plot=None):
         plt.gca().invert_yaxis()
         plt.title(f'Probability of Covering Spread - {year} Season')
         plt.legend(loc='upper right');
+
+
+def wp_books(type=None):
+    raw = nfl.import_schedules([2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023])
+    data = raw[['game_id', 'home_team', 'away_team', 'home_score', 'away_score', 'spread_line', 'result']]
+    home = data[['home_team', 'spread_line', 'result']].copy()
+    home['home_cover'] = home['result'] > home['spread_line']
+    home = home.rename(columns={'home_team':'team', 'home_cover':'cover'})
+    away = data[['away_team', 'spread_line', 'result']].copy()
+    away['spread_line'] = -away['spread_line']
+    away['result'] = -away['result']
+    away['away_cover'] = away['result'] > away['spread_line']
+    away = away.rename(columns={'away_team':'team', 'away_cover':'cover'})
+    data = pd.concat([home, away], axis=0)
+    bin_edges = np.arange(data['spread_line'].min(), data['spread_line'].max() + 1.5, 1.5)
+    data['spread_line_binned'] = pd.cut(data['spread_line'], bins=bin_edges, right=False)
+    data = data.groupby('spread_line_binned').agg(
+        cover_probability=('cover', 'mean'),
+        games_played=('cover', 'count')
+    ).reset_index()
+
+    if type is not None:
+        data['spread_line_binned'] = data['spread_line_binned'].astype(str)
+        games_played_normalized = data['games_played'] / data['games_played'].max()
+        plt.figure(figsize=(10, 6))
+        scatter = plt.scatter(data['cover_probability'], data['spread_line_binned'], 
+                              c=games_played_normalized,cmap='viridis', alpha=0.9,
+                              s=100)
+        cbar = plt.colorbar(scatter)
+        cbar.set_label('Games Played (Normalized)')
+        plt.title('Cover Probability vs Spread Line (2.5pt Bins, Color represents games played)')
+        plt.xlabel('Spread Line (Binned)')
+        plt.ylabel('Cover Probability')
+        plt.xticks(rotation=90, ha='right')
+        plt.axvline(0.5, color='grey', alpha=0.75, linestyle='--')
+        plt.grid(True)
+    else:
+        data['spread_line_binned'] = data['spread_line_binned'].astype(str)
+        plt.figure(figsize=(10, 6))
+        scatter = plt.scatter(data['cover_probability'], data['spread_line_binned'], 
+                              s=50, color='blue', alpha=0.9, label='Cover Probability')
+        plt.title('Cover Probability vs Spread Line (2.5pt Bins)')
+        plt.xlabel('Spread Line (Binned)')
+        plt.ylabel('Cover Probability')
+        for i, row in data.iterrows():
+            plt.annotate(
+                f'{int(row["games_played"])}',
+                (row['cover_probability'],row['spread_line_binned']), 
+                textcoords="offset points",  xytext=(0, 5), ha='center')
+        plt.axvline(0.5, color='grey', alpha=0.75, linestyle='--')
+        plt.grid(True)
+
+def team_image(team):
+    team_img = nfl.import_team_desc()
+    team_img = team_img[['team_abbr', 'team_logo_espn']]
+    team_img = team_img.rename(columns={'team_abbr':'team','team_logo_espn':'logo'})
+    logo_url = team_img.loc[team_img['team'] == team, 'logo'].values
+    logo_url = logo_url[0]
+    return logo_url
+
+
+def team_covers(team):
+    raw = nfl.import_schedules([2014, 2015, 2016, 2017,2018, 2019,
+                                 2020, 2021, 2022, 2023])
+    data = raw[['game_id', 'home_team', 'away_team', 'home_score',
+                'away_score', 'spread_line', 'result']]
+    home = data[['home_team', 'spread_line', 'result']].copy()
+    home['home_cover'] = home['result'] > home['spread_line']
+    home = home.rename(columns={'home_team':'team', 'home_cover':'cover'})
+    away = data[['away_team', 'spread_line', 'result']].copy()
+    away['spread_line'] = -away['spread_line']
+    away['result'] = -away['result']
+    away['away_cover'] = away['result'] > away['spread_line']
+    away = away.rename(columns={'away_team':'team', 'away_cover':'cover'})
+    data = pd.concat([home, away], axis=0)
+    data = data[data['team'].isin([team])]
+    bin_edges = np.arange(data['spread_line'].min(), data['spread_line'].max() + 1.5, 1.5)
+    data['spread_line_binned'] = pd.cut(data['spread_line'], bins=bin_edges, right=False)
+    data = data.groupby('spread_line_binned').agg(
+    cover_probability=('cover', 'mean'),
+    games_played=('cover', 'count'),
+    ).reset_index()
+    data['spread_line_binned'] = data['spread_line_binned'].astype(str)
+    url = team_image(team)
+    img = imread(url)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    spread_lines = data['spread_line_binned'].unique()
+    spread_lines_sorted = sorted(spread_lines, key=lambda x: np.mean([float(i) for i in x.strip('()[]').split(',')])) 
+    spread_line_mapping = {val: i for i, val in enumerate(spread_lines_sorted)}
+    data['spread_line_binned_index'] = data['spread_line_binned'].map(spread_line_mapping)
+    ax.imshow(img, aspect='auto', extent=[-0.1, 1.1, -1, len(spread_lines_sorted)], alpha=0.3, zorder=-1)
+    ax.scatter(data['cover_probability'], data['spread_line_binned_index'], s=50, color='grey', alpha=0.9, label='Cover Probability')
+    ax.set_xlabel('Cover Probability')
+    ax.set_ylabel('Spread Line')
+    ax.set_title(f'{team} Cover Probability by Spread')
+    ax.set_xlim(-0.1, 1.1)
+    ax.set_ylim(-1, len(spread_lines_sorted))  # Add some padding on the y-axis
+    ax.set_yticks(np.arange(len(spread_lines_sorted)))
+    ax.set_yticklabels(spread_lines_sorted)
+    for i, row in data.iterrows():
+        ax.annotate(f'{int(row["games_played"])}', 
+                    (row['cover_probability'], row['spread_line_binned_index']),
+                    textcoords="offset points", xytext=(0, 5), ha='center')
+    ax.axvline(0.5, color='grey', alpha=0.75, linestyle='--')
+    ax.grid(True, alpha=0.3);
+    
+    
         
