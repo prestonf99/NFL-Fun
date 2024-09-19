@@ -50,6 +50,7 @@ def get_data(type=None):
 
 
 
+
 def get_prior_matchup(team=None, opp=None):
     data = get_data('')
     if team is not None:
@@ -95,18 +96,22 @@ def my_roster(week):
 
     return data
 
-def fantasy_matchups(week, style=None):
-    stats = pd.read_csv('2023_def.csv')
+def fantasy_matchups(week, style=None, sort=None):
+    stats = get_data()
     stats = stats.rename(columns={'total_yards_allowed':'Yards Allowed', 'rush_yards_allowed':'Avg RushYds',
                               'receiving_yards_allowed':'Avg RecYds', 'points_allowed':'PA/PG'})
     data = my_roster(week)
     merged = pd.merge(data, stats, left_on='opponent', right_on='team', how='left')
-    merged = merged.drop(columns={'team_y','plays'})
+    merged = merged.drop(columns={'plays'})
     merged = merged.rename(columns={'team_x':'team'})
     data = merged
+    if sort is not None:
+        data = data.sort_values(sort, ascending=False)
+    else:
+        data = data.sort_values('Yards Allowed', ascending=False)
 
     if style is None:
-        data = merged.style \
+        data = data.style \
             .background_gradient(cmap='RdYlGn_r', subset=['TY Rank', 'RY Rank', 'RecY Rank', 'PA Rank'], vmin=1, vmax=32)\
             .background_gradient(cmap='RdYlGn_r', subset=['Yards Allowed'], vmin=310, vmax=390) \
             .background_gradient(cmap='RdYlGn_r', subset=['Avg RushYds'], vmin=90, vmax=140) \
@@ -122,6 +127,6 @@ def fantasy_matchups(week, style=None):
                 {'selector': 'td', 'props': [('padding', '5px')]},
             ])
         
-    print(f' Data vs. 2023 Data, will update once 2024 pbp data available. Week {week} data.')   
+    print(f' Data vs. 2024 YTD Data')   
 
     return data
